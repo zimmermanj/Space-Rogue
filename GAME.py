@@ -6,7 +6,8 @@ import math
 import random
 import math
 import time
-import os, datetime
+import os 
+import datetime
 from compiler.ast import flatten
 import sys
 ladder=["terrible", "poor", "mediocre", "average","fair", "good",  "great", "superb", "fantastic", "legendary", ]
@@ -54,7 +55,14 @@ def charactercreation():
 	libtcod.console_print(0,0,12,charnombre+ " is a "+ladder[charlore]+" lore knower")
 	charexplorer=random.randint(0,4)
 	libtcod.console_print(0,0,13,charnombre+ " is a "+ladder[charexplorer]+" explorer")
-    
+def load_customfont():
+	a = 256
+ 
+	print("meh")
+	libtcod.console_map_ascii_code_to_font(256, 0, 6)
+	libtcod.console_map_ascii_code_to_font(257, 1, 6)
+	
+load_customfont()		
 charactercreation()
 enemies_spawned=0
 number_of_planets=50
@@ -63,10 +71,22 @@ spacexmin=0-100
 spaceymax=100
 spaceymin=0-100
 current_planet=0
+wall_tile = 256 
+floor_tile = 257
+player_tile = 258
+orc_tile = 259
+troll_tile = 260
+scroll_tile = 261
+healingpotion_tile = 262
+sword_tile = 263
+shield_tile = 264
+stairsdown_tile = 265
+dagger_tile = 266
 player_radioactivity=30 #0
 fov_map=libtcod.map_new(screen_width-1, screen_width-1)
 messages=[]
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
+
 messages=[""]*4
 #makes screen
 libtcod.console_init_root(screen_width, screen_width*6/5, 'Game', False)
@@ -672,15 +692,17 @@ def ground_draw(shooting_mode):
 						libtcod.console_put_char(0,larmour.x,larmour.y,"a", libtcod.BKGND_NONE)
 				if planet[current_planet].tiles[x][y][current_floor].blocked==True and player_health>0 and libtcod.map_is_in_fov(fov_map,x,y):
 					libtcod.console_set_default_foreground(0, libtcod.white)
-					if hasattr(planet[current_planet].tiles[x][y][current_floor],"status_effect") and planet[current_planet].tiles[x][y][current_floor].status_effect!=None and planet[current_planet].tiles[x][y][current_floor].status_effect.effect=="fire":
-						libtcod.console_set_default_foreground(0, libtcod.orange)
-					libtcod.console_put_char(0, x, y, "#", libtcod.BKGND_NONE)
-				elif planet[current_planet].tiles[x][y][current_floor].blocked==False and player_health>0 and libtcod.map_is_in_fov(fov_map,x,y) :
-				
-					if hasattr(planet[current_planet].tiles[x][y][current_floor],"status_effect") and planet[current_planet].tiles[x][y][current_floor].status_effect!=None and planet[current_planet].tiles[x][y][current_floor].status_effect.effect=="fire":
-						libtcod.console_set_default_foreground(0, libtcod.orange)
 					
-					libtcod.console_put_char(0, x, y, ".", libtcod.BKGND_NONE)
+					libtcod.console_put_char_ex(0, x, y, "#",  libtcod.white, libtcod.black)
+				elif planet[current_planet].tiles[x][y][current_floor].blocked==False and player_health>0 and libtcod.map_is_in_fov(fov_map,x,y) :
+					#CHAR_CHECKBOX_UNSET
+					
+					
+					libtcod.console_put_char_ex(0, x, y, 9, libtcod.white, libtcod.black)
+					if hasattr(planet[current_planet].tiles[x][y][current_floor],"status_effect") and planet[current_planet].tiles[x][y][current_floor].status_effect!=None and planet[current_planet].tiles[x][y][current_floor].status_effect.effect=="fire":
+						libtcod.console_put_char_ex(0, x, y, 224, libtcod.white, libtcod.black)
+				
+					
 				else:
 					libtcod.console_put_char(0,x,y," ", libtcod.BKGND_NONE)
 				libtcod.console_set_default_foreground(0, libtcod.white)
@@ -971,7 +993,7 @@ def space_draw():
 			libtcod.console_set_default_foreground(0, planet[x].color)
 			libtcod.console_put_char(0, planet[x].x-top_left[0],planet[x].y-top_left[1], "O", libtcod.BKGND_NONE)
 	libtcod.console_set_default_foreground(0, libtcod.white)
-	libtcod.console_put_char(0, spacex-top_left[0], spacey-top_left[1], "@", libtcod.BKGND_NONE)
+	libtcod.console_put_char(0, spacex-top_left[0], spacey-top_left[1], "$", libtcod.BKGND_NONE)
 	
 	
 			
