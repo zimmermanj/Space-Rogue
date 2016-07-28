@@ -29,11 +29,12 @@ charunarmed=0
 charspeaker=0
 charhacker=0
 charcartographer=0
+chemicals=[]
 charrepair=0
 charlore=0
 charexplorer=0
 def charactercreation():
-  
+	global charcartographer, charexplorer,charhacker,charlore,charmage,charmelee,charnombre,charrepair,charshooter,charspeaker,charunarmed
 	charnombre="Your character"
 	charmelee=random.randint(0,4)
 	libtcod.console_print(0,0,4,charnombre+ " is a "+ladder[charmelee]+" melee fighter")
@@ -76,6 +77,7 @@ current_planet=0
 wall_tile = 256 
 floor_tile = 257
 player_tile = 258
+chemicals_made=10
 orc_tile = 259
 troll_tile = 260
 scroll_tile = 261
@@ -85,7 +87,7 @@ shield_tile = 264
 stairsdown_tile = 265
 dagger_tile = 266
 player_radioactivity=30 #
-0
+
 fov_map=libtcod.map_new(screen_width-1, screen_width-1)
 messages=[]
 #libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
@@ -561,11 +563,13 @@ def handle_keys():
 
 #makes the map for the ground
 def make_ground_map():
-	global longest, longest_name, planet
+	global longest, longest_name, planet, chemicals
+	chemicals=[]
 	for x in range(screen_width-1):
 		for y in range(screen_width-1):
 			while len(planet[current_planet].tiles[x][y])<current_floor+1:
 				planet[current_planet].tiles[x][y].append(Tile(True, "none","none","none"))
+	
 	general_variable=0
 	new_x=player_x_coordinate
 	new_x=player_y_coordinate
@@ -576,10 +580,10 @@ def make_ground_map():
 	
 	
 	while general_variable<20:
-		x=random.randint(1,screen_width-3)
-		y=random.randint(1,screen_width-3)
-		x_two=random.randint(x, screen_width-3)
-		y_two=random.randint(y,screen_width-3)
+		x=random.randint(2,screen_width-3)
+		y=random.randint(2,screen_width-3)
+		x_two=random.randint(2, screen_width-3)
+		y_two=random.randint(2,screen_width-3)
 		make_room(x, x_two, y, y_two)
         
         
@@ -621,42 +625,73 @@ def make_ground_map():
 		console_write(stx)
 		console_write(sty)
 	planet[current_planet].tiles[0][0][current_floor].stairu=[stx,sty]
+	for x in range(chemicals_made):
+		typechem=random.randint(0,6)
+		chemx=random.randint(2,screen_width-2)
+		chemy=random.randint(2,screen_width-2)
+		while planet[current_planet].tiles[chemx][chemy][current_floor].blocked==True:
+			chemx=random.randint(2,screen_width-2)
+			chemy=random.randint(2,screen_width-2)
+		if typechem==0:
+			chemicals.append(Chemical("gaddin",1,1,chemx,chemy))
+		elif typechem==1:
+			chemicals.append(Chemical("arbinal",1,1,chemx,chemy))
+		elif typechem==2:
+			chemicals.append(Chemical("branyl",1,1,chemx,chemy))
+		elif typechem==3:
+			chemicals.append(Chemical("resdin",1,1,chemx,chemy))
+		elif typechem==4:
+			chemicals.append(Chemical("chestin",1,1,chemx,chemy))
+		elif typechem==5:
+			chemicals.append(Chemical("narkinal",1,1,chemx,chemy))
+		elif typechem==6:
+			chemicals.append(Chemical("flattle",1,1,chemx,chemy))
 #handles the space controls
 def handle_spacekey():
-	print("eRRRRR")
+	
 	global longest, longest_name
 	global spacex, spacey, mode
 	global placex, placey
 	console_write("(((((((("+str(longest)+"longest "+longest_name+"))))))))")
-	key = libtcod.console_wait_for_keypress(True)
-	libtcod.console_disable_keyboard_repeat()
+	
 	message("Your acceleration is at "+str(placex)+", "+str(placey))
 	message("Your location is at "+str(spacex)+", "+str(spacey))
-	if libtcod.console_is_key_pressed(libtcod.KEY_UP):
-		placey -= 1
+	pressedreal=False
+	while pressedreal==False:
+		key = libtcod.console_wait_for_keypress(True)
+		libtcod.console_disable_keyboard_repeat()
+		if libtcod.console_is_key_pressed(libtcod.KEY_UP)==True:
+			placey -= 1
+			pressedreal=True
+		elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
+			placey += 1
+			pressedreal=True
+		elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+			placex -= 1
+			pressedreal=True
+		elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+			placex += 1
+			pressedreal=True
+		elif key.c==ord("d"):
+			mode="incinerate"
+			pressedreal=True
+		elif key.c==ord("i"):
+			mode="space_inventory1"
+			pressedreal=True
 		
-	elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-		placey += 1
-		
-	elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-		placex -= 1
-		
-	elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-		placex += 1
-
-	elif key.c==ord("d"):
-		mode="incinerate"
-	elif key.c==ord("i"):
-		mode="space_inventory1"
-	elif key.c==ord("z"):
-		space_draw()
-		done_shooting=False
-		message("SHOOTING MODE IS ACTIVE")
-		while(done_shooting==False):
-			libtcod.console_wait_for_keypress(True)
+		elif key.c==ord("z"):
+			space_draw()
+			done_shooting=False
+			message("SHOOTING MODE IS ACTIVE")
+			while(done_shooting==False):
+				libtcod.console_wait_for_keypress(True)
 			
-			done_shooting=True
-			space_shooting(placex,placey)
+				done_shooting=True
+				space_shooting(placex,placey)
+			pressedreal=True
+			pressedreal=True
+		elif libtcod.console_is_key_pressed(libtcod.KEY_CHAR):
+			pressedreal=True
 	top_left[0]+=placex
 	bottom_right=[top_left[0]+49,top_left[1]+49]
 	top_left[1]+=placey
@@ -673,13 +708,13 @@ def handle_spacekey():
 			libtcod.console_wait_for_keypress(True)
 			
 			done_shooting=True
-	print("THAANAN")
+
 	if key.vk == libtcod.KEY_ENTER and key.lalt:
 		libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
 	
 	elif key.vk == libtcod.KEY_ESCAPE:
 		return True
-	print("BRRRRR")
+	
 def ground_draw(shooting_mode):
 	global player_health, longest, longest_name
 	libtcod.map_compute_fov(fov_map, player_x_coordinate,player_y_coordinate,0,light_walls=True,algo=libtcod.FOV_DIAMOND)
@@ -699,7 +734,9 @@ def ground_draw(shooting_mode):
 	if check_for_status_effect("blind")!=True:
 		for x in xrange(screen_width-1):
 			for y in xrange(screen_width-1):
-			
+				for chemical in chemicals:
+					if libtcod.map_is_in_fov(fov_map,chemical.x,chemical.y):
+						libtcod.console_put_char(0, chemical.x, chemical.y, "c", libtcod.BKGND_NONE)
 				for weapon in weapons:
 				
 					if hasattr(weapon,"x") and libtcod.map_is_in_fov(fov_map,weapon.x,weapon.y):
@@ -715,7 +752,7 @@ def ground_draw(shooting_mode):
 					#CHAR_CHECKBOX_UNSET
 					
 					
-					libtcod.console_put_char_ex(0, x, y, 9, libtcod.white, libtcod.black)
+					libtcod.console_put_char_ex(0, x, y, " ", libtcod.white, libtcod.black)
 					if hasattr(planet[current_planet].tiles[x][y][current_floor],"status_effect") and planet[current_planet].tiles[x][y][current_floor].status_effect!=None and planet[current_planet].tiles[x][y][current_floor].status_effect.effect=="fire":
 						libtcod.console_put_char_ex(0, x, y, 224, libtcod.white, libtcod.black)
 				
@@ -749,7 +786,7 @@ def ground_draw(shooting_mode):
 				
 				libtcod.console_put_char(0, x, y, random.choice(["D","E","A","D"]), libtcod.BKGND_NONE)
 				
-	
+
 	libtcod.console_flush()
 	end=time.clock()
 	if (end-start)>longest:
@@ -758,10 +795,14 @@ def ground_draw(shooting_mode):
 	
 #defines ground gameplay
 def groundplay():
-	global longest, longest_name,planet, player_radioactivity
+	global longest, longest_name,planet, player_radioactivity, chemicals
 		
 		
 	global player_health, player_x_coordinate, player_y_coordinate
+	for i in range(len(chemicals)-1):
+		if len(chemicals)-1>=i and player_x_coordinate==chemicals[i].x and player_y_coordinate==chemicals[i].y:
+			inventory.append(chemicals[i])
+			del chemicals[i]
 	console_write("((s))"+str(longest)+longest_name+"((e))")
 	
 	ground_draw(False)
@@ -1171,13 +1212,13 @@ def shooting(currentx,currenty, x,y):
 	if random.randint(1,loops)<5 and random.randint(1,10)!=1 and currentx+x<screen_width-1 and currentx+x<screen_width-1 and currenty+y<screen_width-1 and currentx+x>=0 and currenty+y>=0 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked==True:
 		planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked=False
 def space_shooting(x,y):
-	global spacex,spacey
+	global spacex,spacey, planet
 	loops=1
 	monster_hit=False
 	currentx=24
 	currenty=24
 	while  random.randint(1,loops)<5 and currentx+x<screen_width-1 and currentx+x>=0 and currenty+y>=0 and currenty+y<screen_width-1 and monster_hit==False:
-		message("workss")
+		
 		if currentx!=spacex or currenty!=spacey:
 			libtcod.console_set_default_foreground(0, libtcod.red)	
 			libtcod.console_put_char(0,currentx,currenty,"~", libtcod.BKGND_NONE)
@@ -1188,8 +1229,11 @@ def space_shooting(x,y):
 		currentx+=x
 		currenty+=y
 		for i in xrange(len(planet)):
-			
+			message("workss")
+			console_write(currentx)
+			console_write(planet[i].x)
 			if planet[i].x==currentx and planet[i].y==currenty:
+				
 				message(planet[i].name+" has been hit")
 				monster_hit=True
 				print("EYEYEYEYEYEYE")
@@ -1199,7 +1243,7 @@ def space_shooting(x,y):
 				
 				
 				
-				i=number_of_planets
+				
 		print("current="+str(currentx)+","+str(currenty))
 def throwing(chemical,currentx,currenty, x,y):
 	loops=1
@@ -1441,7 +1485,7 @@ def status_screen():
 		libtcod.console_print(0,0,1,"You have a "+inventory[current_armor].name+" equipped as armour.")
 		libtcod.console_print(0,0,2,"You are on planet "+planet[current_planet].name)
 		libtcod.console_print(0,0,3,"You have "+str(player_health)+" health.")
-		charactercreation()
+		
 		key = libtcod.console_wait_for_keypress(False)
 		
 		
@@ -1540,7 +1584,7 @@ while not libtcod.console_is_window_closed():
 		if groundplay()==True:
 			break
 	elif mode=="space":
-		time.sleep(0.2)
+		
 		if spaceplay()==True:
 			break
 	elif mode=="inventory":
