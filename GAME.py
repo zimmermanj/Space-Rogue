@@ -56,13 +56,15 @@ def charactercreation():
 	charexplorer=random.randint(0,4)
 	libtcod.console_print(0,0,13,charnombre+ " is a "+ladder[charexplorer]+" explorer")
 def load_customfont():
-	a = 256
+    #The index of the first custom tile in the file
+    a = 256
  
-	print("meh")
-	libtcod.console_map_ascii_code_to_font(256, 0, 6)
-	libtcod.console_map_ascii_code_to_font(257, 1, 6)
+    #The "y" is the row index, here we load the sixth row in the font file. Increase the "6" to load any new rows from the file
+    for y in range(5,6):
+        libtcod.console_map_ascii_codes_to_font(224, 32, 0, y)
+        a += 32
 	
-load_customfont()		
+	
 charactercreation()
 enemies_spawned=0
 number_of_planets=50
@@ -82,9 +84,11 @@ sword_tile = 263
 shield_tile = 264
 stairsdown_tile = 265
 dagger_tile = 266
-player_radioactivity=30 #0
+player_radioactivity=30 #
+0
 fov_map=libtcod.map_new(screen_width-1, screen_width-1)
 messages=[]
+#libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
 
 messages=[""]*4
@@ -619,6 +623,7 @@ def make_ground_map():
 	planet[current_planet].tiles[0][0][current_floor].stairu=[stx,sty]
 #handles the space controls
 def handle_spacekey():
+	print("eRRRRR")
 	global longest, longest_name
 	global spacex, spacey, mode
 	global placex, placey
@@ -626,6 +631,7 @@ def handle_spacekey():
 	key = libtcod.console_wait_for_keypress(True)
 	libtcod.console_disable_keyboard_repeat()
 	message("Your acceleration is at "+str(placex)+", "+str(placey))
+	message("Your location is at "+str(spacex)+", "+str(spacey))
 	if libtcod.console_is_key_pressed(libtcod.KEY_UP):
 		placey -= 1
 		
@@ -634,9 +640,10 @@ def handle_spacekey():
 		
 	elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
 		placex -= 1
-		print(placex)
+		
 	elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
 		placex += 1
+
 	elif key.c==ord("d"):
 		mode="incinerate"
 	elif key.c==ord("i"):
@@ -649,7 +656,7 @@ def handle_spacekey():
 			libtcod.console_wait_for_keypress(True)
 			
 			done_shooting=True
-			space_shooting(spacex, spacex, placex,placey)
+			space_shooting(placex,placey)
 	top_left[0]+=placex
 	bottom_right=[top_left[0]+49,top_left[1]+49]
 	top_left[1]+=placey
@@ -658,11 +665,21 @@ def handle_spacekey():
 	spacex+=placex
 	spacey+=placey
 	print("sec"+str(spacex))
+	if key.c==ord("z"):
+		space_draw()
+		done_shooting=False
+		message("SHOOTING MODE IS ACTIVE")
+		while(done_shooting==False):
+			libtcod.console_wait_for_keypress(True)
+			
+			done_shooting=True
+	print("THAANAN")
 	if key.vk == libtcod.KEY_ENTER and key.lalt:
 		libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
 	
 	elif key.vk == libtcod.KEY_ESCAPE:
 		return True
+	print("BRRRRR")
 def ground_draw(shooting_mode):
 	global player_health, longest, longest_name
 	libtcod.map_compute_fov(fov_map, player_x_coordinate,player_y_coordinate,0,light_walls=True,algo=libtcod.FOV_DIAMOND)
@@ -993,8 +1010,8 @@ def space_draw():
 			libtcod.console_set_default_foreground(0, planet[x].color)
 			libtcod.console_put_char(0, planet[x].x-top_left[0],planet[x].y-top_left[1], "O", libtcod.BKGND_NONE)
 	libtcod.console_set_default_foreground(0, libtcod.white)
-	libtcod.console_put_char(0, spacex-top_left[0], spacey-top_left[1], "$", libtcod.BKGND_NONE)
-	
+	#libtcod.console_put_char(0, spacex-top_left[0], spacey-top_left[1], "$", libtcod.BKGND_NONE)
+	libtcod.console_put_char(0, 24, 24, "$", libtcod.BKGND_NONE)
 	
 			
 	
@@ -1004,7 +1021,7 @@ def space_draw():
 #defines how the game plays in space
 def spaceplay():
 	global planet,mode, player_x_coordinate,player_y_coordinate, number_of_planets, spacexmax,spacexmin,spaceymax,spaceymin
-	print(str(spacex)+"z")
+	print("REEEEEEEEEEEEE")
 	space_draw()
 	if spacex>spacexmax:
 		spacexmax=spacex
@@ -1014,7 +1031,8 @@ def spaceplay():
 		spaceymax=spacey
 	if spacey<spaceymin:
 		spacexmax=spacex
-	exit=handle_spacekey()
+	exit=False
+	handle_spacekey()
 	for i in xrange(number_of_planets):
 		if spacex==planet[i].x and spacey==planet[i].y :
 			if planet[i].visited==False:
@@ -1081,7 +1099,8 @@ def spaceplay():
 	
 		
 	if exit==True:
-			return True		
+			return True
+	print("reeeeeeeee")			
 #Randomly places the player down. PRE-ALPHA CODE        
 
 
@@ -1151,11 +1170,14 @@ def shooting(currentx,currenty, x,y):
 				i=enemies_spawned
 	if random.randint(1,loops)<5 and random.randint(1,10)!=1 and currentx+x<screen_width-1 and currentx+x<screen_width-1 and currenty+y<screen_width-1 and currentx+x>=0 and currenty+y>=0 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked==True:
 		planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked=False
-def space_shooting(currentx,currenty, x,y):
+def space_shooting(x,y):
+	global spacex,spacey
 	loops=1
 	monster_hit=False
-	
-	while  random.randint(1,loops)<5 and currentx+x<screen_width-1 and currentx+x>=0 and currenty+y>=0 and currenty+y<screen_width-1 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked!=True and monster_hit==False:
+	currentx=24
+	currenty=24
+	while  random.randint(1,loops)<5 and currentx+x<screen_width-1 and currentx+x>=0 and currenty+y>=0 and currenty+y<screen_width-1 and monster_hit==False:
+		message("workss")
 		if currentx!=spacex or currenty!=spacey:
 			libtcod.console_set_default_foreground(0, libtcod.red)	
 			libtcod.console_put_char(0,currentx,currenty,"~", libtcod.BKGND_NONE)
@@ -1170,6 +1192,7 @@ def space_shooting(currentx,currenty, x,y):
 			if planet[i].x==currentx and planet[i].y==currenty:
 				message(planet[i].name+" has been hit")
 				monster_hit=True
+				print("EYEYEYEYEYEYE")
 				del planet[i]
 				
 				
@@ -1177,7 +1200,7 @@ def space_shooting(currentx,currenty, x,y):
 				
 				
 				i=number_of_planets
-	
+		print("current="+str(currentx)+","+str(currenty))
 def throwing(chemical,currentx,currenty, x,y):
 	loops=1
 	monster_hit=False
@@ -1517,7 +1540,7 @@ while not libtcod.console_is_window_closed():
 		if groundplay()==True:
 			break
 	elif mode=="space":
-		
+		time.sleep(0.2)
 		if spaceplay()==True:
 			break
 	elif mode=="inventory":
