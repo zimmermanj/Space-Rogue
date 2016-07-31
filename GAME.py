@@ -16,6 +16,7 @@ sys.stderr = open('error\errorlog.txt', 'w')
 screen_width=51
 starx=[]
 stary=[]
+
 for x in range(10000):
 	starx.append(random.randint(0,1000))
 	stary.append(random.randint(0,1000))
@@ -83,7 +84,7 @@ sword_tile = 263
 shield_tile = 264
 stairsdown_tile = 265
 dagger_tile = 266
-player_radioactivity=30 #
+player_radioactivity=0 #0
 
 fov_map=libtcod.map_new(screen_width-1, screen_width-1)
 messages=[]
@@ -98,10 +99,8 @@ planet=[]
 #makes inventory
 inventory=[]
 space_inventory=[]
-current_weapon=0
-current_armor=0
-player_health=10000 #100
-max_health=10000 #100
+
+
 current_floor=0
 top_left=[0,0]
 bottom_right=[49,49]
@@ -136,6 +135,8 @@ weapons[0]=Weapon("Basic Weapon",1,None,None)
 inventory.append(weapons[0])
 armours=[0]
 armours[0]=Armor("Basic Armour",1,None,None)
+current_weapon=weapons[0]
+current_armor=armours[0]
 inventory.append(armours[0])
 inventory.append(Chemical("mundinal",1,1,None,None))
 inventory.append(Chemical("iecurcide",1,1,None,None))
@@ -189,10 +190,11 @@ class monster:
 		self.capital=capital
 		self.name=name
 		self.health_points=health_points
+		self.max_health=health_points
 		self.floor=floor
 		self.planet=planet
 		self.status_effects=[status_effect("health", 50,1)]
-		self.type=random.choice(["reptile","snake","bird","demon","insectoid"])
+		self.type=random.choice(["reptile","snake","bird","demon","insectoid","flame-being"])
 		self.color=libtcod.Color(random.randint(0,255),random.randint(0,255),random.randint(0,255))
 	def go(self):
 		sleep=False
@@ -204,15 +206,22 @@ class monster:
 			return(path_finder(self.x,self.y,self.goal_x_coordinate,self.goal_y_coordinate))
 	def draw(self):
 		if self.type=="reptile" and self.health_points>0:
-			libtcod.console_put_char_ex(0, self.x, self.y, 2, libtcod.white, libtcod.black)
+			if self.health_points>0.66*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 2, libtcod.white, libtcod.black)
+			elif self.health_points<0.66*self.max_health and self.health_points>0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 26, libtcod.white, libtcod.black)
+			elif self.health_points<0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 27, libtcod.white, libtcod.black)
 		elif self.type=="snake" and self.health_points>0:
 			libtcod.console_put_char_ex(0, self.x, self.y, 3, libtcod.white, libtcod.black)
 		elif self.type=="bird" and self.health_points>0:
-			libtcod.console_put_char_ex(0, self.x, self.y, 4, libtcod.white, libtcod.black)
+			libtcod.console_put_char_ex(0, self.x, self.y, 4, self.color, libtcod.white)
 		elif self.type=="demon" and self.health_points>0:
 			libtcod.console_put_char_ex(0, self.x, self.y, 5, libtcod.white, libtcod.black)
 		elif self.type=="insectoid" and self.health_points>0:
-			libtcod.console_put_char_ex(0, self.x, self.y, 6, libtcod.white, libtcod.black)
+			libtcod.console_put_char_ex(0, self.x, self.y, 6,  self.color, libtcod.white)
+		elif self.type=="flame-being" and self.health_points>0:
+			libtcod.console_put_char_ex(0, self.x, self.y, 22, libtcod.white, libtcod.black)
 	def move(self, x_modifier, y_modifier):
 		if self.health_points>0 and current_planet==self.planet and current_floor==self.floor:
 			self.x+=x_modifier
@@ -223,8 +232,14 @@ class status_effect:
 		self.effect=effect
 		self.decay=decay
 		self.power=power
+class Player:
+	def __init__(self, x,y):
+		self.x=x
+		self.y=y
+		self.health=100
+		self.max_health=100
 player_status_effects=[]
-
+player=Player(None,None)
 
 
 def alchemy_convert(itemo,itemt):
@@ -386,7 +401,7 @@ def path_finder(start_x_coordinate,start_y_coordinate,  end_x_coordinate, end_y_
 		pathfinding_result="n"
 	return pathfinding_result
 def check_for_able_to_move(x,y):
-	global player_x_coordinate, player_y_coordinate, enemies_spawned, longest
+	global player, enemies_spawned, longest
 	no_monster_there=True
 	
 
@@ -395,7 +410,7 @@ def check_for_able_to_move(x,y):
 
 	for critter in creature[current_planet][current_floor]:
 			
-		if critter.x==player_x_coordinate+x and critter.y ==player_y_coordinate+y and critter.health_points>0:
+		if critter.x==player.x+x and critter.y ==player.y+y and critter.health_points>0:
 			critter.health_points-=1
 			no_monster_there=False
 			message(critter.name+" has been hit")
@@ -403,8 +418,8 @@ def check_for_able_to_move(x,y):
 		
 	console_write (no_monster_there)			
 	if no_monster_there==True:
-		player_y_coordinate += y
-		player_x_coordinate+=x
+		player.y += y
+		player.x+=x
 		
 	end=time.clock()
 	if (end-start)>longest:
@@ -413,33 +428,33 @@ def check_for_able_to_move(x,y):
 		
 #how the player moves on the ground	
 def handle_keys():
-	global mode,player_x_coordinate, player_y_coordinate, current_floor, longest
+	global mode,player, current_floor, longest
 	
-	libtcod.console_disable_keyboard_repeat()
+	
 	key = libtcod.console_wait_for_keypress(True)
-	if player_health<=0:
+	if player.health<=0:
 		return(True)
 	
 	
 	
-	if libtcod.console_is_key_pressed(libtcod.KEY_UP) and planet[current_planet].tiles[player_x_coordinate][player_y_coordinate-1][current_floor].blocked==False and player_health>0:
+	if libtcod.console_is_key_pressed(libtcod.KEY_UP) and planet[current_planet].tiles[player.x][player.y-1][current_floor].blocked==False and player.health>0:
 		
 		check_for_able_to_move(0,0-1)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN) and planet[current_planet].tiles[player_x_coordinate][player_y_coordinate+1][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN) and planet[current_planet].tiles[player.x][player.y+1][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(0,1)
 	
-	elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT) and planet[current_planet].tiles[player_x_coordinate-1][player_y_coordinate][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT) and planet[current_planet].tiles[player.x-1][player.y][current_floor].blocked==False and player.health>0:
 		
 		check_for_able_to_move(0-1,0)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) and planet[current_planet].tiles[player_x_coordinate+1][player_y_coordinate][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) and planet[current_planet].tiles[player.x+1][player.y][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(1,0)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_KP7) and planet[current_planet].tiles[player_x_coordinate-1][player_y_coordinate-1][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_KP7) and planet[current_planet].tiles[player.x-1][player.y-1][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(0-1,0-1)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_KP9) and planet[current_planet].tiles[player_x_coordinate+1][player_y_coordinate-1][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_KP9) and planet[current_planet].tiles[player.x+1][player.y-1][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(1,0-1)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_KP1) and planet[current_planet].tiles[player_x_coordinate-1][player_y_coordinate+1][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_KP1) and planet[current_planet].tiles[player.x-1][player.y+1][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(0-1,1)
-	elif libtcod.console_is_key_pressed(libtcod.KEY_KP3) and planet[current_planet].tiles[player_x_coordinate+1][player_y_coordinate+1][current_floor].blocked==False and player_health>0:
+	elif libtcod.console_is_key_pressed(libtcod.KEY_KP3) and planet[current_planet].tiles[player.x+1][player.y+1][current_floor].blocked==False and player.health>0:
 		check_for_able_to_move(1,1)
 	elif libtcod.console_is_key_pressed(libtcod.KEY_SPACE):
 		
@@ -459,17 +474,20 @@ def handle_keys():
 			if libtcod.console_is_key_pressed(libtcod.KEY_UP):
 				
 				done_shooting=True
-				shooting(player_x_coordinate, player_y_coordinate, 0,0-1)
+				shooting(player.x, player.y, 0,0-1)
 			elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-				shooting(player_x_coordinate, player_y_coordinate, 0,1)
+				shooting(player.x, player.y, 0,1)
 				done_shooting=True
 			elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-				shooting(player_x_coordinate, player_y_coordinate, 1,0)
+				shooting(player.x, player.y, 1,0)
 				done_shooting=True
 			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
 				done_shooting=True
-				shooting(player_x_coordinate, player_y_coordinate, 0-1,0)
+				shooting(player.x, player.y, 0-1,0)
 	elif key.c==ord("t"):
+		for x in xrange (screen_width-1):
+			for y in xrange(screen_width-1):
+				libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
 		currentselection=0
 		slection=None
 		while slection==None:
@@ -515,16 +533,16 @@ def handle_keys():
 			if libtcod.console_is_key_pressed(libtcod.KEY_UP):
 				
 				done_shooting=True
-				throwing(slection,player_x_coordinate, player_y_coordinate, 0,0-1)
+				throwing(slection,player.x, player.y, 0,0-1)
 			elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-				throwing(slection,player_x_coordinate, player_y_coordinate, 0,1)
+				throwing(slection,player.x, player.y, 0,1)
 				done_shooting=True
 			elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-				throwing(slection,player_x_coordinate, player_y_coordinate, 1,0)
+				throwing(slection,player.x, player.y, 1,0)
 				done_shooting=True
 			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
 				done_shooting=True
-				throwing(slection,player_x_coordinate, player_y_coordinate, 0-1,0)
+				throwing(slection,player.x, player.y, 0-1,0)
 	elif key.c==ord("."):
 		message("waited")
 	
@@ -550,10 +568,10 @@ def make_ground_map():
 				planet[current_planet].tiles[x][y].append(Tile(True, "none","none","none"))
 	
 	general_variable=0
-	new_x=player_x_coordinate
-	new_x=player_y_coordinate
-	new_x_two=player_x_coordinate
-	new_x_two=player_y_coordinate
+	new_x=player.x
+	new_x=player.y
+	new_x_two=player.x
+	new_x_two=player.y
 	
 	start=time.clock()
 	
@@ -695,8 +713,8 @@ def handle_spacekey():
 		return True
 	
 def ground_draw(shooting_mode):
-	global player_health, longest, longest_name
-	libtcod.map_compute_fov(fov_map, player_x_coordinate,player_y_coordinate,0,light_walls=True,algo=libtcod.FOV_DIAMOND)
+	global player, longest, longest_name
+	libtcod.map_compute_fov(fov_map, player.x,player.y,0,light_walls=True,algo=libtcod.FOV_DIAMOND)
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)		
@@ -709,7 +727,7 @@ def ground_draw(shooting_mode):
 				libtcod.map_set_properties(fov_map,x,y,True,True)
 	
 	start=time.clock()
-	libtcod.console_print (0,0,screen_width,"You are at "+str(player_health)+"/"+str(max_health)+" health")
+	libtcod.console_print (0,0,screen_width,"You are at "+str(player.health)+"/"+str(player.max_health)+" health")
 	if check_for_status_effect("blind")!=True:
 		for x in xrange(screen_width-1):
 			for y in xrange(screen_width-1):
@@ -733,15 +751,15 @@ def ground_draw(shooting_mode):
 				for weapon in weapons:
 				
 					if hasattr(weapon,"x") and libtcod.map_is_in_fov(fov_map,weapon.x,weapon.y):
-						libtcod.console_put_char(0,weapon.x,weapon.y,"w", libtcod.BKGND_NONE)
+						libtcod.console_put_char_ex(0,weapon.x,weapon.y,24, libtcod.grey, libtcod.white)
 				for larmour in armours:
 					if hasattr(larmour,"x") and libtcod.map_is_in_fov(fov_map,larmour.x,larmour.y):
-						libtcod.console_put_char(0,larmour.x,larmour.y,"a", libtcod.BKGND_NONE)
-				if planet[current_planet].tiles[x][y][current_floor].blocked==True and player_health>0 and libtcod.map_is_in_fov(fov_map,x,y):
+						libtcod.console_put_char_ex(0,larmour.x,larmour.y,23, libtcod.grey, libtcod.white)
+				if planet[current_planet].tiles[x][y][current_floor].blocked==True and player.health>0 and libtcod.map_is_in_fov(fov_map,x,y):
 					libtcod.console_set_default_foreground(0, libtcod.white)
 					
 					libtcod.console_put_char_ex(0, x, y, "#",  libtcod.white, libtcod.black)
-				elif planet[current_planet].tiles[x][y][current_floor].blocked==False and player_health>0 and libtcod.map_is_in_fov(fov_map,x,y) :
+				elif planet[current_planet].tiles[x][y][current_floor].blocked==False and player.health>0 and libtcod.map_is_in_fov(fov_map,x,y) :
 					#CHAR_CHECKBOX_UNSET
 					
 					
@@ -760,10 +778,10 @@ def ground_draw(shooting_mode):
 						critter.draw()
 			
 				if shooting_mode==False:
-					libtcod.console_put_char_ex(0, player_x_coordinate, player_y_coordinate, 1, libtcod.white, libtcod.black)
+					libtcod.console_put_char_ex(0, player.x, player.y, 1, libtcod.white, libtcod.black)
 				if shooting_mode==True:
 				
-					libtcod.console_put_char_ex(0, player_x_coordinate, player_y_coordinate, 18, libtcod.white, libtcod.black)
+					libtcod.console_put_char_ex(0, player.x, player.y, 18, libtcod.white, libtcod.black)
 				if x==planet[current_planet].tiles[0][0][current_floor].stair[0] and y==planet[current_planet].tiles[0][0][current_floor].stair[1] and libtcod.map_is_in_fov(fov_map,x,y):
 					libtcod.console_put_char_ex(0, x, y, 16, libtcod.white, libtcod.black)
 				if x==planet[current_planet].tiles[0][0][current_floor].stairu[0] and y==planet[current_planet].tiles[0][0][current_floor].stairu[1] and libtcod.map_is_in_fov(fov_map,x,y):
@@ -773,7 +791,7 @@ def ground_draw(shooting_mode):
 			
 			for y in xrange(screen_width-1):
 				libtcod.console_put_char(0,x,y," ", libtcod.BKGND_NONE)
-	if player_health<=0:
+	if player.health<=0:
 		for x in xrange(screen_width-1):
 			for y in xrange(screen_width-1):
 				
@@ -789,14 +807,15 @@ def ground_draw(shooting_mode):
 #defines ground gameplay
 def groundplay():
 	global longest, longest_name,planet, player_radioactivity, chemicals,current_floor,current_planet, mode
-		
-		
-	global player_health, player_x_coordinate, player_y_coordinate
+	global player, player,weapons,armours
+	print(weapons)
+	print("CW IS = "+str(current_weapon.name))
+	
 	print("THE CURRENT FLOOR IS"+str(current_floor))
 	if current_floor<0:
 		current_floor=0
 	for i in range(len(chemicals)-1):
-		if len(chemicals)-1>=i and player_x_coordinate==chemicals[i].x and player_y_coordinate==chemicals[i].y:
+		if len(chemicals)-1>=i and player.x==chemicals[i].x and player.y==chemicals[i].y:
 			inventory.append(chemicals[i])
 			chemicals[i].taken=True
 			del chemicals[i]
@@ -810,7 +829,7 @@ def groundplay():
 		
 		thing=player_status_effects[leffect].effect
 		if thing=="poison":
-			player_health=int(player_health*player_status_effects[leffect].power)
+			player.health=int(player.health*player_status_effects[leffect].power)
 		player_status_effects[leffect].decay-=1
 		print("dec="+str(player_status_effects[leffect].decay))
 		if player_status_effects[leffect].decay<1:
@@ -818,9 +837,9 @@ def groundplay():
 			
 			del player_status_effects[leffect]
 	
-	if player_x_coordinate==0 and player_y_coordinate==0:
-		player_y_coordinate=planet[current_planet].tiles[0][0][current_floor].stair[1]
-		player_x_coordinate=planet[current_planet].tiles[0][0][current_floor].stair[0]
+	if player.x==0 and player.y==0:
+		player.y=planet[current_planet].tiles[0][0][current_floor].stair[1]
+		player.x=planet[current_planet].tiles[0][0][current_floor].stair[0]
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			
@@ -830,8 +849,8 @@ def groundplay():
 				if planet[current_planet].tiles[x][y][current_floor].status_effect.decay <=0:
 					del(planet[current_planet].tiles[x][y][current_floor].status_effect)
 				if hasattr(planet[current_planet].tiles[x][y][current_floor],"status_effect") and planet[current_planet].tiles[x][y][current_floor].status_effect.effect=="fire":
-					if x ==player_x_coordinate and y ==player_y_coordinate:
-						player_health=int(player_health/2)
+					if x ==player.x and y ==player.y:
+						player.health=int(player.health/2)
 					
 					print(str(x)+","+str(y)+" is on fire")
 					tivt=random.randint(0,1)
@@ -858,7 +877,7 @@ def groundplay():
 
 	
 	for weapon in weapons:
-		if weapon.x==player_x_coordinate and weapon.y==player_y_coordinate:
+		if weapon.x==player.x and weapon.y==player.y:
 			inventory.append(weapon)
 			weapon.x=None
 			weapon.y=None
@@ -868,10 +887,10 @@ def groundplay():
 		longest=end-start		
 	start=time.clock()
 	if player_radioactivity>0:
-		player_health=player_health-(player_radioactivity)
+		player.health=player.health-(player_radioactivity)
 	player_radioactivity=int(player_radioactivity/2)
 	for larmour in armours:
-		if larmour.x==player_x_coordinate and larmour.y==player_y_coordinate:
+		if larmour.x==player.x and larmour.y==player.y:
 			inventory.append(larmour)
 			larmour.x=None
 			larmour.y=None
@@ -903,95 +922,98 @@ def groundplay():
 	
 	look(libtcod.mouse_get_status().cx,libtcod.mouse_get_status().cy)
 	
-	for critter in creature[current_planet][current_floor]:
+	for i in range(len(creature[current_planet][current_floor])):
 		start=time.clock()
-		if hasattr(planet[current_planet].tiles[critter.x][critter.y][current_floor],"status_effect") and planet[current_planet].tiles[critter.x][critter.y][current_floor].status_effect!=None and planet[current_planet].tiles[critter.x][critter.y][current_floor].status_effect.effect=="fire":
-			critter.status_effects.append(status_effect("fire",3,1))
-		console_write("weenus")
-		while len(critter.status_effects)>5:
-			del(critter.status_effects[0])
-		for other_critter in creature[current_planet][current_floor]:
-			if critter.x==other_critter.x and critter.y==other_critter.y and critter!=other_critter and other_critter.health_points>0 and critter.health_points>0  and current_planet==critter.planet and current_floor==critter.floor:
-				other_critter.health_points=0
-			for fect in critter.status_effects:
+		if i<=len(creature[current_planet][current_floor])-1:
+			if hasattr(planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor],"status_effect") and planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].status_effect!=None and planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].status_effect.effect=="fire":
+				creature[current_planet][current_floor][i].status_effects.append(status_effect("fire",3,1))
+			console_write("weenus")
+			while len(creature[current_planet][current_floor][i].status_effects)>5:
+				del(creature[current_planet][current_floor][i].status_effects[0])
+			for other_critter in creature[current_planet][current_floor]:
+			
+				for fect in creature[current_planet][current_floor][i].status_effects:
 				
-				if fect.effect=="fire":
-					critter.health_points-=1
-					if critter.x==other_critter.x:
-						if critter.y-1>2 and critter.y-1==other_critter.y:
-							other_critter.status_effects.append(status_effect("fire",3,1))
-						if critter.y+1<screen_width-2 and critter.y+1==other_critter.y:
-							other_critter.status_effects.append(status_effect("fire",3,1))
-					if critter.y==other_critter.y:
-						if critter.x-1>2 and critter.x-1==other_critter.x:
-							other_critter.status_effects.append(status_effect("fire",3,1))
-						if critter.x+1<screen_width-2 and critter.x+1==other_critter.x:
-							other_critter.status_effects.append(status_effect("fire",3,1))
-		end=time.clock()
-		if (end-start)>longest:
-			longest_name="movin enemies"
-			longest=end-start
-		for fect in critter.status_effects:
-			for fectt in critter.status_effects:
-				if fect.effect==fectt.effect:
-					del fectt
-		if critter.health_points>0  and current_planet==critter.planet and current_floor==critter.floor:
-			if critter.x==player_x_coordinate and critter.y ==player_y_coordinate:
-				critter.health_points-=weapons[current_weapon].strength
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-			critter.goal_x_coordinate=player_x_coordinate
-			critter.goal_y_coordinate=player_y_coordinate
-			dorg=0
-			if player_health>0:
-				dorg=critter.go()
+					if fect.effect=="fire":
+						if creature[current_planet][current_floor][i].type!="flame-being":
+							creature[current_planet][current_floor][i].health_points-=1
+						if creature[current_planet][current_floor][i].x==other_critter.x:
+							if creature[current_planet][current_floor][i].y-1>2 and creature[current_planet][current_floor][i].y-1==other_critter.y:
+								other_critter.status_effects.append(status_effect("fire",3,1))
+							if creature[current_planet][current_floor][i].y+1<screen_width-2 and creature[current_planet][current_floor][i].y+1==other_critter.y:
+								other_critter.status_effects.append(status_effect("fire",3,1))
+						if creature[current_planet][current_floor][i].y==other_critter.y:
+							if creature[current_planet][current_floor][i].x-1>2 and creature[current_planet][current_floor][i].x-1==other_critter.x:
+								other_critter.status_effects.append(status_effect("fire",3,1))
+							if creature[current_planet][current_floor][i].x+1<screen_width-2 and creature[current_planet][current_floor][i].x+1==other_critter.x:
+								other_critter.status_effects.append(status_effect("fire",3,1))
+			end=time.clock()
+			if (end-start)>longest:
+				longest_name="movin enemies"
+				longest=end-start
+			for fect in creature[current_planet][current_floor][i].status_effects:
+				for fectt in creature[current_planet][current_floor][i].status_effects:
+					if fect.effect==fectt.effect:
+						del fectt
+			if creature[current_planet][current_floor][i].type=="flame-being":
+				planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].status_effect=status_effect("fire",3,1)
+			if creature[current_planet][current_floor][i].health_points>0  and current_planet==creature[current_planet][current_floor][i].planet and current_floor==creature[current_planet][current_floor][i].floor:
+				if creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y ==player.y:
+					creature[current_planet][current_floor][i].health_points-=current_weapon.strength
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+				creature[current_planet][current_floor][i].goal_x_coordinate=player.x
+				creature[current_planet][current_floor][i].goal_y_coordinate=player.y
+				dorg=0
+				if player.health>0:
+					dorg=creature[current_planet][current_floor][i].go()
 			
-			if dorg=="x":	
-				critter.move(1,0)
+				if dorg=="x":	
+					creature[current_planet][current_floor][i].move(1,0)
 			
-			elif dorg=="-x":
-					critter.move(-1,0)
+				elif dorg=="-x":
+					creature[current_planet][current_floor][i].move(-1,0)
 			
-			elif dorg=="y":
-				critter.move(0,1)
+				elif dorg=="y":
+					creature[current_planet][current_floor][i].move(0,1)
 			
-			elif dorg=="-y":
-					critter.move(0,-1)
-			if critter.x==player_x_coordinate and critter.y==player_y_coordinate:
-				message(critter.name+" did "+str(critter.health_points-armours[current_armor].strength)+" damage to the player")
-				player_health-=critter.health_points-armours[current_armor].strength
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
+				elif dorg=="-y":
+					creature[current_planet][current_floor][i].move(0,-1)
+				if creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y and i<=len(creature[current_planet][current_floor])-1:
+					message(creature[current_planet][current_floor][i].name+" did "+str(creature[current_planet][current_floor][i].health_points-current_armor.strength)+" damage to the player")
+					player.health-=creature[current_planet][current_floor][i].health_points-current_armor.strength
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
 				
-			if dorg=="x" and critter.x==player_x_coordinate and critter.y==player_y_coordinate:	
-				critter.move(-1,0)
+				if dorg=="x" and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y:	
+					creature[current_planet][current_floor][i].move(-1,0)
 			
-			elif dorg=="-x" and critter.x==player_x_coordinate and critter.y==player_y_coordinate:
-					critter.move(1,0)
+				elif dorg=="-x" and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y:
+					creature[current_planet][current_floor][i].move(1,0)
 			
-			elif dorg=="y" and critter.x==player_x_coordinate and critter.y==player_y_coordinate:
-				critter.move(0,-1)
+				elif dorg=="y" and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y:
+					creature[current_planet][current_floor][i].move(0,-1)
 			
-			elif dorg=="-y" and critter.x==player_x_coordinate and critter.y==player_y_coordinate:
-					critter.move(0,1)
-			if player_y_coordinate+1<screen_width-2 and critter.x==player_x_coordinate and critter.y==player_y_coordinate+1 and player_radioactivity>50:
-				critter.health_points-=(player_radioactivity-50)
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-			elif player_x_coordinate-1>2 and critter.x==player_x_coordinate-1 and critter.y==player_y_coordinate and player_radioactivity>50:
-				critter.health_points-=(player_radioactivity-50)
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-			elif player_x_coordinate+1<screen_width-2 and critter.x==player_x_coordinate+1 and critter.y==player_y_coordinate and player_radioactivity>50:
-				critter.health_points-=(player_radioactivity)
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-			elif player_y_coordinate-1>2 and critter.x==player_x_coordinate and critter.y==player_y_coordinate-1 and player_radioactivity>50:
-				critter.health_points-=(player_radioactivity)
-				planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-		if critter.health_points>0  and current_planet==critter.planet and current_floor==critter.floor:
-			libtcod.map_set_properties(fov_map,critter.x,critter.y,False,False)
+				elif dorg=="-y" and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y:
+					creature[current_planet][current_floor][i].move(0,1)
+				if player.y+1<screen_width-2 and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y+1 and player_radioactivity>50:
+					creature[current_planet][current_floor][i].health_points-=(player_radioactivity-50)
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+				elif player.x-1>2 and creature[current_planet][current_floor][i].x==player.x-1 and creature[current_planet][current_floor][i].y==player.y and player_radioactivity>50:
+					creature[current_planet][current_floor][i].health_points-=(player_radioactivity-50)
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+				elif player.x+1<screen_width-2 and creature[current_planet][current_floor][i].x==player.x+1 and creature[current_planet][current_floor][i].y==player.y and player_radioactivity>50:
+					creature[current_planet][current_floor][i].health_points-=(player_radioactivity)
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+				elif player.y-1>2 and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y-1 and player_radioactivity>50:
+					creature[current_planet][current_floor][i].health_points-=(player_radioactivity)
+					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+			if creature[current_planet][current_floor][i].health_points>0  and current_planet==creature[current_planet][current_floor][i].planet and current_floor==creature[current_planet][current_floor][i].floor:
+				libtcod.map_set_properties(fov_map,creature[current_planet][current_floor][i].x,creature[current_planet][current_floor][i].y,False,False)
 		
-		if critter.health_points<0  and current_planet==critter.planet and current_floor==critter.floor:
+			if creature[current_planet][current_floor][i].health_points<0  and current_planet==creature[current_planet][current_floor][i].planet and current_floor==creature[current_planet][current_floor][i].floor:
+				monster_death(creature[current_planet][current_floor][i].x,creature[current_planet][current_floor][i].y)
 			
-			
-			planet[current_planet].tiles[critter.x][critter.y][current_floor].blood=True
-			del critter
+				planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
+				del creature[current_planet][current_floor][i]
 			
 			
 	if sleep!=True and exit==True:
@@ -1001,7 +1023,7 @@ def groundplay():
 		longest_name="movin enemies"
 		longest=end-start		
 	ground_draw(False)
-	if player_x_coordinate==planet[current_planet].tiles[0][0][current_floor].stair[0] and player_y_coordinate==planet[current_planet].tiles[0][0][current_floor].stair[1]:
+	if player.x==planet[current_planet].tiles[0][0][current_floor].stair[0] and player.y==planet[current_planet].tiles[0][0][current_floor].stair[1]:
 		console_write("downcf is "+str(current_floor))
 		message("downcf is "+str(current_floor))
 		current_floor+=1
@@ -1015,11 +1037,11 @@ def groundplay():
 			console_write(len(planet[current_planet].tiles))		
 			make_ground_map()
 			make_all_enemies_on_floor(5)	
-		player_x_coordinate=planet[current_planet].tiles[0][0][current_floor].stairu[0]
-		player_y_coordinate=planet[current_planet].tiles[0][0][current_floor].stairu[1]
+		player.x=planet[current_planet].tiles[0][0][current_floor].stairu[0]
+		player.y=planet[current_planet].tiles[0][0][current_floor].stairu[1]
 		planet[current_planet].floor_visited[current_floor]=True
 		
-	elif player_x_coordinate==planet[current_planet].tiles[0][0][current_floor].stairu[0] and player_y_coordinate==planet[current_planet].tiles[0][0][current_floor].stairu[1]:
+	elif player.x==planet[current_planet].tiles[0][0][current_floor].stairu[0] and player.y==planet[current_planet].tiles[0][0][current_floor].stairu[1]:
 		console_write("upcf is "+str(current_floor))
 		message("upcf is "+str(current_floor))
 		current_floor-=1
@@ -1028,8 +1050,8 @@ def groundplay():
 			if planet[current_planet].floor_visited[current_floor]==False:
 				make_ground_map()
 				make_all_enemies_on_floor(5)	
-			player_x_coordinate=planet[current_planet].tiles[0][0][current_floor].stair[0]
-			player_y_coordinate=planet[current_planet].tiles[0][0][current_floor].stair[1]
+			player.x=planet[current_planet].tiles[0][0][current_floor].stair[0]
+			player.y=planet[current_planet].tiles[0][0][current_floor].stair[1]
 			planet[current_planet].floor_visited[current_floor]=True
 		elif current_floor<0:
 			print("YAAAAAAAAAAAAAAAAAAAAS")
@@ -1041,7 +1063,7 @@ for x in xrange(number_of_planets):
 
 
 def message(message):
-	global messages, player_health
+	global messages, player
 	messages[0]=messages[1]
 	messages[1]=messages[2]
 	messages[2]=messages[3]
@@ -1097,7 +1119,7 @@ def space_draw():
 	libtcod.console_flush()
 #defines how the game plays in space
 def spaceplay():
-	global planet,mode, player_x_coordinate,player_y_coordinate, number_of_planets, spacexmax,spacexmin,spaceymax,spaceymin
+	global planet,mode, player, number_of_planets, spacexmax,spacexmin,spaceymax,spaceymin
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
@@ -1117,10 +1139,10 @@ def spaceplay():
 		if spacex==planet[i].x and spacey==planet[i].y :
 			if planet[i].visited==False:
 				current_planet=i
-				player_x_coordinate=random.randint(0,screen_width-1)
-				player_y_coordinate=random.randint(0,screen_width-1)
-				planet[i].player_x_coordinate=player_x_coordinate
-				planet[i].player_y_coordinate=player_y_coordinate
+				player.x=random.randint(0,screen_width-1)
+				player.y=random.randint(0,screen_width-1)
+				planet[i].player_x_coordinate=player.x
+				planet[i].player_y_coordinate=player.y
 				#creates entire map
 				current_planet=i
 				while len(planet)>len(creature):
@@ -1139,8 +1161,8 @@ def spaceplay():
 			planet[i].visited=True
 			current_planet=i
 			
-			player_x_coordinate=planet[current_planet].tiles[0][0][current_floor].stairu[0]
-			player_y_coordinate=planet[current_planet].tiles[0][0][current_floor].stairu[1]
+			player.x=planet[current_planet].tiles[0][0][current_floor].stairu[0]
+			player.y=planet[current_planet].tiles[0][0][current_floor].stairu[1]
 			
 			
 			
@@ -1182,7 +1204,40 @@ def spaceplay():
 			return True
 	print("reeeeeeeee")			
 #Randomly places the player down. PRE-ALPHA CODE        
-
+def explode(stx,sty,vel):
+	
+	lent=0
+	while vel>0:
+		lent+=1
+		vel-=1
+		for x in range(lent):
+			
+			planet[current_planet].tiles[stx+x][sty+x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx+x,sty+x):
+				libtcod.console_put_char_ex(0, stx+x, sty+x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx-x][sty+x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx-x,sty+x):
+				libtcod.console_put_char_ex(0, stx-x, sty+x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx+x][sty-x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx+x,sty-x):
+				libtcod.console_put_char_ex(0, stx+x, sty-x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx][sty+x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx,sty+x):
+				libtcod.console_put_char_ex(0, stx, sty+x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx+x][sty][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx+x,sty):
+				libtcod.console_put_char_ex(0, stx+x, sty, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx-x][sty-x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx-x,sty-x):
+				libtcod.console_put_char_ex(0, stx-x, sty-x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx][sty-x][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx,sty-x):
+				libtcod.console_put_char_ex(0, stx, sty-x, 25, libtcod.white, libtcod.black)
+			planet[current_planet].tiles[stx-x][sty][current_floor].blocked=False
+			if libtcod.map_is_in_fov(fov_map,stx-x,sty):
+				libtcod.console_put_char_ex(0, stx-x, sty, 25, libtcod.white, libtcod.black)
+			libtcod.console_flush()
+			
 
 placex=0
 placey=0
@@ -1191,10 +1246,11 @@ placey=0
 	
 creature=[]
 def monster_death(x,y):
+	global current_floor
 	if random.randint(0,1)==0:
-		weapons.append(Weapon("weapon"+str(random.randint(0,10000)),random.randint(1,9),x,y))
+		weapons.append(Weapon("weapon"+str(random.randint(0,10000)),random.randint(1,current_floor+1),x,y))
 	else:
-		armours.append(Armor("armor"+str(random.randint(0,10000)),random.randint(1,9),x,y))
+		armours.append(Armor("armor"+str(random.randint(0,10000)),random.randint(1,current_floor+1),x,y))
 def make_all_enemies_on_floor(enemies_spawned):
 	global creature,current_floor,current_planet
 	
@@ -1215,7 +1271,7 @@ def make_all_enemies_on_floor(enemies_spawned):
 		while len(creature[current_planet])<current_floor+1:
 			creature[current_planet].append([0])
 		
-		creature[current_planet][current_floor].append(monster(enemyc[0],enemyc[1],player_x_coordinate,player_y_coordinate, monster_name()[0],monster_name()[1],random.randint(1,9),current_floor,current_planet ))
+		creature[current_planet][current_floor].append(monster(enemyc[0],enemyc[1],player.x,player.y, monster_name()[0],monster_name()[1],random.randint(1,current_floor+4),current_floor,current_planet ))
 	
 	del creature[current_planet][current_floor][0]
 	
@@ -1226,7 +1282,7 @@ def shooting(currentx,currenty, x,y):
 	monster_hit=False
 	
 	while  random.randint(1,loops)<5 and currentx+x<screen_width-1 and currentx+x>=0 and currenty+y>=0 and currenty+y<screen_width-1 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked!=True and monster_hit==False:
-		if currentx!=player_x_coordinate or currenty!=player_y_coordinate:
+		if currentx!=player.x or currenty!=player.y:
 			libtcod.console_set_default_foreground(0, libtcod.red)	
 			libtcod.console_put_char_ex(0,currentx,currenty,19, libtcod.white,libtcod.black)
 			libtcod.console_set_default_foreground(0, libtcod.white)
@@ -1245,7 +1301,7 @@ def shooting(currentx,currenty, x,y):
 					creature[current_planet][current_floor][i].x+=x
 					creature[current_planet][current_floor][i].y+=y
 				
-				creature[current_planet][current_floor][i].health_points-=random.randint(1,5)*(weapons[current_weapon].strength)
+				creature[current_planet][current_floor][i].health_points-=random.randint(1,5)*(current_weapon.strength)
 				planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
 				i=enemies_spawned
 	if random.randint(1,loops)<5 and random.randint(1,10)!=1 and currentx+x<screen_width-1 and currentx+x<screen_width-1 and currenty+y<screen_width-1 and currentx+x>=0 and currenty+y>=0 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked==True:
@@ -1288,19 +1344,18 @@ def throwing(chemical,currentx,currenty, x,y):
 	loops=1
 	monster_hit=False
 	
-	for x in xrange (screen_width-1):
-		for y in xrange(screen_width-1):
-			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
+	
 	while  random.randint(1,loops)<5 and currentx+x<screen_width-1 and currentx+x>=0 and currenty+y>=0 and currenty+y<screen_width-1 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked!=True and monster_hit==False:
-		if currentx!=player_x_coordinate or currenty!=player_y_coordinate:
+		print("ZOOOOOOOOO"+str(currentx)+" "+str(currenty)+" "+str(x)+" "+str(y))
+		if currentx!=player.x or currenty!=player.y:
 			print("zoop")
 			libtcod.console_set_default_foreground(0, libtcod.blue)	
-			libtcod.console_put_char(0,currentx,currenty,"~", libtcod.BKGND_NONE)
+			libtcod.console_put_char_ex(0,currentx,currenty,"~", libtcod.white,libtcod.black)
 			libtcod.console_set_default_foreground(0, libtcod.white)
 			libtcod.console_flush()
 			time.sleep(0.1)
 		loops+=1
-		print("ZOOOOOOOOO"+str(currentx)+" "+str(currenty)+" "+str(x)+" "+str(y))
+		
 		currentx+=x
 		currenty+=y
 		for i in xrange(len(creature[current_planet][current_floor])):
@@ -1310,7 +1365,7 @@ def throwing(chemical,currentx,currenty, x,y):
 				planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked=False
 				
 				if chemical=="mundinal":
-					creature[current_planet][current_floor][i].health_points=player_health*2
+					creature[current_planet][current_floor][i].health_points=player.health*2
 					
 				elif chemical=="iecurcide":
 					creature[current_planet][current_floor][i].status_effects.append(status_effect("poison",16,0.75))
@@ -1326,6 +1381,8 @@ def throwing(chemical,currentx,currenty, x,y):
 					
 				elif chemical=="caecilem":
 					creature[current_planet][current_floor][i].status_effects.append(status_effect("blind",12,1))
+				
+				
 					
 					
 				
@@ -1349,10 +1406,12 @@ def throwing(chemical,currentx,currenty, x,y):
 	
 	if chemical=="incendite":
 		planet[current_planet].tiles[currentx][currenty][current_floor].status_effect=status_effect("fire",6,1)
+	elif chemical=="platzenyl":
+		explode(currentx,currenty,5)
 	if random.randint(1,loops)<5 and random.randint(1,10)!=1 and currentx+x<screen_width-1 and currentx+x<screen_width-1 and currenty+y<screen_width-1 and currentx+x>=0 and currenty+y>=0 and planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked==True:
 		planet[current_planet].tiles[currentx+x][currenty+y][current_floor].blocked=False
 def inventory_screen(currentselection):
-	global inventory, mode, current_weapon,current_armor, player_health
+	global inventory, mode, current_weapon,current_armor, player, weapons,armours
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
@@ -1382,12 +1441,15 @@ def inventory_screen(currentselection):
 			
 		elif libtcod.console_is_key_pressed(libtcod.KEY_ENTER):
 			if isinstance(inventory[currentselection],Weapon):
-				current_weapon=currentselection
+				current_weapon=inventory[currentselection]
 			elif isinstance(inventory[currentselection],Armor):
-				current_armor=currentselection
+				current_armor=inventory[currentselection]
 			elif isinstance(inventory[currentselection],Chemical):
 				if inventory[currentselection].name=="mundinal":
-					player_health=player_health*2
+					player.health=player.health*2
+					del inventory[currentselection]
+				elif inventory[currentselection].name=="curinal":
+					player.health=player.health*4
 					del inventory[currentselection]
 				elif inventory[currentselection].name=="iecurcide":
 					player_status_effects.append(status_effect("poison",16,0.75))
@@ -1404,13 +1466,24 @@ def inventory_screen(currentselection):
 					
 					del inventory[currentselection]
 					currentselection=0
+				elif inventory[currentselection].name=="mort acid":
+					player_status_effects.append(status_effect("poison",48,0.5))
+					
+					del inventory[currentselection]
+					currentselection=0
 				elif inventory[currentselection].name=="caecilem":
 					player_status_effects.append(status_effect("blind",12,1))
 					
 					del inventory[currentselection]
 					currentselection=0
 				elif inventory[currentselection].name=="incendite":
-					planet[current_planet].tiles[player_x_coordinate][player_y_coordinate][current_floor].status_effect=status_effect("fire",6,1)
+					planet[current_planet].tiles[player.x][player.y][current_floor].status_effect=status_effect("fire",6,1)
+					del inventory[currentselection]
+				elif inventory[currentselection].name=="platzenyl":
+					explode(player.x,player.y,5)
+					del inventory[currentselection]
+				elif inventory[currentselection].name=="godyl":
+					planet[current_planet].tiles[player.x][player.y][current_floor].status_effect=status_effect("gas",6,1)
 					del inventory[currentselection]
 				elif inventory[currentselection].name=="dorminyl":
 					player_status_effects.append(status_effect("sleep",12,1))
@@ -1421,8 +1494,8 @@ def inventory_screen(currentselection):
 							del player_status_effects[c]
 					del inventory[currentselection]
 				elif inventory[currentselection].name=="mergin":
-					if hasattr(planet[current_planet].tiles[player_x_coordinate][player_y_coordinate][current_floor], "status_effect") and planet[current_planet].tiles[player_x_coordinate][player_y_coordinate][current_floor].status_effect!=None and planet[current_planet].tiles[player_x_coordinate][player_y_coordinate][current_floor].status_effect.effect=="fire":
-						del planet[current_planet].tiles[player_x_coordinate][player_y_coordinate][current_floor].status_effect
+					if hasattr(planet[current_planet].tiles[player.x][player.y][current_floor], "status_effect") and planet[current_planet].tiles[player.x][player.y][current_floor].status_effect!=None and planet[current_planet].tiles[player.x][player.y][current_floor].status_effect.effect=="fire":
+						del planet[current_planet].tiles[player.x][player.y][current_floor].status_effect
 					
 					del inventory[currentselection]
 		elif key.c==ord("z"):
@@ -1432,7 +1505,7 @@ def inventory_screen(currentselection):
 	
 		libtcod.console_flush()
 def mix_screen(currentselection):
-	global inventory, mode, current_weapon,current_armor, player_health, selected
+	global inventory, mode, current_weapon,current_armor, player, selected
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
@@ -1481,7 +1554,7 @@ def mix_screen(currentselection):
 	
 		libtcod.console_flush()
 def incinerate_screen(currentselection):
-	global inventory, mode, current_weapon,current_armor, player_health
+	global inventory, mode, current_weapon,current_armor, player
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
@@ -1533,10 +1606,10 @@ def status_screen():
 		
 		
 			
-		libtcod.console_print(0,0,0,"You have a "+inventory[current_weapon].name+" equipped.")
-		libtcod.console_print(0,0,1,"You have a "+inventory[current_armor].name+" equipped as armour.")
+		libtcod.console_print(0,0,0,"You have a "+current_weapon.name+" equipped.")
+		libtcod.console_print(0,0,1,"You have a "+current_armor.name+" equipped as armour.")
 		libtcod.console_print(0,0,2,"You are on planet "+planet[current_planet].name)
-		libtcod.console_print(0,0,3,"You have "+str(player_health)+" health.")
+		libtcod.console_print(0,0,3,"You have "+str(player.health)+" health.")
 		
 		key = libtcod.console_wait_for_keypress(False)
 		
@@ -1548,7 +1621,7 @@ def status_screen():
 	
 		libtcod.console_flush()
 def space_inventory_screen():
-	global inventory, mode, current_weapon,current_armor, player_health
+	global inventory, mode, current_weapon,current_armor, player
 	for x in xrange (screen_width-1):
 		for y in xrange(screen_width-1):
 			libtcod.console_put_char_ex(0, x, y, " ", libtcod.black, libtcod.black)
