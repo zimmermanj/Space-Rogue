@@ -85,7 +85,7 @@ shield_tile = 264
 stairsdown_tile = 265
 dagger_tile = 266
 player_radioactivity=0 #0
-
+roomnum=0
 fov_map=libtcod.map_new(screen_width-1, screen_width-1)
 messages=[]
 #libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
@@ -115,7 +115,11 @@ class Weapon:
 		self.strength=strength
 		self.x=x
 		self.y=y
-
+class Wound:
+	def __init__(self,name,loss):
+		self.name=name
+		self.loss=loss
+		self.subtracted=False
 class Armor:
 	def __init__(self,name,strength,x,y):
 		self.name=name
@@ -163,6 +167,7 @@ class Tile:
 		self.stair=[0,0]
 		self.status_effect=None
 		self.blood=False
+		self.room=None
 	
 class Planet:
 	def __init__(self,x,y,visited, player_x_coordinate,player_y_coordinate,name):
@@ -182,15 +187,16 @@ class Planet:
 		for x in range(10):
 			self.floor_visited.append(False) 
 class monster:
-	def __init__(self,x,y,goal_x_coordinate,goal_y_coordinate, capital, name,health_points,floor,planet):
+	def __init__(self,x,y,goal_x_coordinate,goal_y_coordinate, capital, name,skill_level,floor,planet):
 		self.x=x
 		self.y=y
 		self.goal_x_coordinate=goal_x_coordinate
 		self.goal_y_coordinate=goal_y_coordinate
 		self.capital=capital
 		self.name=name
-		self.health_points=health_points
-		self.max_health=health_points
+		self.skill_level=skill_level
+		self.health_points=skill_level
+		self.max_health=self.health_points
 		self.floor=floor
 		self.planet=planet
 		self.status_effects=[status_effect("health", 50,1)]
@@ -217,11 +223,21 @@ class monster:
 		elif self.type=="bird" and self.health_points>0:
 			libtcod.console_put_char_ex(0, self.x, self.y, 4, self.color, libtcod.white)
 		elif self.type=="demon" and self.health_points>0:
-			libtcod.console_put_char_ex(0, self.x, self.y, 5, libtcod.white, libtcod.black)
+			if self.health_points>0.66*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 5, libtcod.white, libtcod.black)
+			elif self.health_points<0.66*self.max_health and self.health_points>0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 28, libtcod.white, libtcod.black)
+			elif self.health_points<0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 29, libtcod.white, libtcod.black)	
 		elif self.type=="insectoid" and self.health_points>0:
 			libtcod.console_put_char_ex(0, self.x, self.y, 6,  self.color, libtcod.white)
 		elif self.type=="flame-being" and self.health_points>0:
-			libtcod.console_put_char_ex(0, self.x, self.y, 22, libtcod.white, libtcod.black)
+			if self.health_points>0.66*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 22, libtcod.white, libtcod.black)
+			elif self.health_points<0.66*self.max_health and self.health_points>0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 30, libtcod.white, libtcod.black)
+			elif self.health_points<0.33*self.max_health:
+				libtcod.console_put_char_ex(0, self.x, self.y, 31, libtcod.white, libtcod.black)
 	def move(self, x_modifier, y_modifier):
 		if self.health_points>0 and current_planet==self.planet and current_floor==self.floor:
 			self.x+=x_modifier
@@ -232,12 +248,14 @@ class status_effect:
 		self.effect=effect
 		self.decay=decay
 		self.power=power
+		
 class Player:
 	def __init__(self, x,y):
 		self.x=x
 		self.y=y
 		self.health=100
 		self.max_health=100
+		self.wounds=[]
 player_status_effects=[]
 player=Player(None,None)
 
@@ -336,44 +354,76 @@ def check_for_status_effect(effelt):
 			return False
 #defines room making code
 def make_room(x1, x2, y1, y2):
-	global longest, longest_name
-	end=0
+	global longest, longest_name,roomnum
+	xt=max(x1,x2)
+	xo=min(x1,x2)
+	yt=max(y1,y2)
+	yo=min(y1,y2)
+	x1=xo
+	x2=xt
+	y1=yo
+	y2=yt
+	xlen=x2-x1
+	ylen=y2-y1
 	
-
+	
+	end=0
+	for x in range(int(xlen)):
+		
+		
+		for y in range(ylen):
+			
+			
+			planet[current_planet].tiles[x1+x][y+y1][current_floor].blocked=False
+			
+			planet[current_planet].tiles[x1+x][y+y1][current_floor].room=roomnum
+			
 	start=time.clock()
 	
 
-	for x in xrange(x2-x1+1):
-		if end==1:
-			break
-		for y in xrange(y2-y1+1):
-			
-			if(planet[current_planet].tiles[x1+x][y1+y][current_floor].blocked==True):
-				planet[current_planet].tiles[x1+x][y1+y][current_floor].blocked=False
+	#for x in xrange(x2-x1):
+		
+		#for y in xrange(y2-y1):
+			#libtcod.console_put_char_ex(0, x1+x, y1+y, "+", libtcod.blue, libtcod.black)
+			#libtcod.console_flush()
+			#planet[current_planet].tiles[x1+x][y1+y][current_floor].room=roomnum
+			#if(planet[current_planet].tiles[x1+x][y1+y][current_floor].blocked==True):
+				#planet[current_planet].tiles[x1+x][y1+y][current_floor].blocked=False
+			#	planet[current_planet].tiles[x1+x][y1+y][current_floor].room=roomnum
+			#	print("rooooomnuuuum"+str(roomnum))
+			#	return True
+			#else:
                 
-			else:
-                
-				end=1
-				break
+				#end=1
+			#	return False
+			#	break
 	end=time.clock()
 	if (end-start)>longest:
 		longest_name="room make"
-		longest=end-start			
+		longest=end-start
+	return True
 #defines a passage        
 def make_passage(c1, c2, c3, type):
 	global longest, longest_name
 	end=0
 	start=time.clock()
-	for x in xrange(max(c2,c1)-min(c2,c1)+1):
+	for x in xrange(max(c2,c1)+1-min(c2,c1)):
 	
-		if end==1:
-			break
-        if type== "y":
-            
-            planet[current_planet].tiles[c3][x+min(c2, c1)][current_floor].blocked=False
-        if type== "x":
-           
-           planet[current_planet].tiles[x+min(c2, c1)][c3][current_floor].blocked=False
+		
+		if type== "y":
+			libtcod.console_put_char_ex(0, c3, x+min(c2, c1), "+", libtcod.white, libtcod.black)
+			libtcod.console_put_char_ex(0, c3, max(c2, c1), "+", libtcod.red, libtcod.black)
+			libtcod.console_put_char_ex(0, c3, min(c2, c1), "+", libtcod.red, libtcod.black)
+			libtcod.console_flush()
+			planet[current_planet].tiles[c3][x+min(c2, c1)][current_floor].blocked=False
+			planet[current_planet].tiles[c3][x+min(c2, c1)][current_floor].room="passage"
+		if type== "x":
+			libtcod.console_put_char_ex(0, x+min(c2, c1), c3, "+", libtcod.white, libtcod.black)
+			libtcod.console_put_char_ex(0, max(c2, c1), c3, "+", libtcod.red, libtcod.black)
+			libtcod.console_put_char_ex(0, min(c2, c1), c3, "+", libtcod.red, libtcod.black)
+			libtcod.console_flush()
+			planet[current_planet].tiles[x+min(c2, c1)][c3][current_floor].blocked=False
+			planet[current_planet].tiles[x+min(c2, c1)][c3][current_floor].room="passage"
 	end=time.clock()
 	if (end-start)>longest:
 		longest_name="passage make"
@@ -560,7 +610,8 @@ def handle_keys():
 
 #makes the map for the ground
 def make_ground_map():
-	global longest, longest_name, planet, chemicals
+	global longest, longest_name, planet, chemicals,roomnum,player
+	roomnum=0
 	chemicals=[]
 	for x in range(screen_width-1):
 		for y in range(screen_width-1):
@@ -568,21 +619,56 @@ def make_ground_map():
 				planet[current_planet].tiles[x][y].append(Tile(True, "none","none","none"))
 	
 	general_variable=0
-	new_x=player.x
-	new_x=player.y
-	new_x_two=player.x
-	new_x_two=player.y
 	
+	stx=random.randint(0,screen_width-2)
+	sty=random.randint(0,screen_width-2)
+	
+	planet[current_planet].tiles[0][0][current_floor].stairu=[stx,sty]
+	new_x=planet[current_planet].tiles[0][0][current_floor].stairu[0]
+	new_y=planet[current_planet].tiles[0][0][current_floor].stairu[0]
+	new_x_two=planet[current_planet].tiles[0][0][current_floor].stairu[0]
+	new_y_two=planet[current_planet].tiles[0][0][current_floor].stairu[1]
 	start=time.clock()
 	
 	
-	while general_variable<20:
+	while general_variable<5:
 		x=random.randint(2,screen_width-3)
 		y=random.randint(2,screen_width-3)
 		x_two=random.randint(2, screen_width-3)
 		y_two=random.randint(2,screen_width-3)
+		print("BAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRR")
+		returnval=False
+		for u in range(x_two-x):
+			
+			
+			for v in range(y_two-y):
+				print(str(u)+", "+str(v))
+				libtcod.console_put_char_ex(0, u+x, v+y, "#", libtcod.yellow, libtcod.black)
+				libtcod.console_flush()
+				
+				if planet[current_planet].tiles[u+x][v+y][current_floor].blocked==False:
+					
+					returnval=True
+		while returnval==True:
+			print("wooooooooooooo")
+			x=random.randint(2,screen_width-3)
+			y=random.randint(2,screen_width-3)
+			x_two=random.randint(2, screen_width-3)
+			y_two=random.randint(2,screen_width-3)
+			returnval=False
+			for u in range(x_two-x):
+				
+				for v in range(y_two-y):
+					libtcod.console_put_char_ex(0, u+x, v+y, "#", libtcod.yellow, libtcod.black)
+					libtcod.console_flush()
+					
+					if planet[current_planet].tiles[u+x][v+y][current_floor].blocked==False:
+						
+						returnval=True
+		
 		make_room(x, x_two, y, y_two)
-        
+			
+		
         
         
 		make_passage(new_x_two, x, new_x_two, "x")
@@ -590,11 +676,11 @@ def make_ground_map():
         
         
 		new_x=x
-		new_x=y
+		new_y=y
 		new_x_two=x_two
-		new_x_two=y_two
+		new_y_two=y_two
 		general_variable+=1
-		
+		roomnum+=1
 		
 	end=time.clock()
 	if (end-start)>longest:
@@ -612,16 +698,7 @@ def make_ground_map():
 		console_write(stx)
 		console_write(sty)
 	planet[current_planet].tiles[0][0][current_floor].stair=[stx,sty]
-	stx=random.randint(0,screen_width-2)
-	sty=random.randint(0,screen_width-2)
-	while planet[current_planet].tiles[stx][sty][current_floor].blocked==True:
-		console_write(stx)
-		console_write(sty)
-		stx=random.randint(0,screen_width-2)
-		sty=random.randint(0,screen_width-2)
-		console_write(stx)
-		console_write(sty)
-	planet[current_planet].tiles[0][0][current_floor].stairu=[stx,sty]
+	
 	for x in range(chemicals_made):
 		typechem=random.randint(0,6)
 		chemx=random.randint(2,screen_width-2)
@@ -643,6 +720,7 @@ def make_ground_map():
 			chemicals.append(Chemical("narkinal",1,1,chemx,chemy))
 		elif typechem==6:
 			chemicals.append(Chemical("flattle",1,1,chemx,chemy))
+	
 #handles the space controls
 def handle_spacekey():
 	
@@ -797,7 +875,12 @@ def ground_draw(shooting_mode):
 				
 				libtcod.console_put_char(0, x, y, random.choice(["D","E","A","D"]), libtcod.BKGND_NONE)
 				
-	
+	for p in range(roomnum+1):
+		color=libtcod.Color(random.randint(0,255),random.randint(0,255),random.randint(0,255))
+		for x in range(screen_width-1):
+			for y in range(screen_width-1):
+				if planet[current_planet].tiles[x][y][current_floor].room==p or planet[current_planet].tiles[x][y][current_floor].room=="passage":
+					libtcod.console_put_char_ex(0, x, y, "#", color, libtcod.black)
 	libtcod.console_flush()
 	end=time.clock()
 	if (end-start)>longest:
@@ -810,7 +893,12 @@ def groundplay():
 	global player, player,weapons,armours
 	print(weapons)
 	print("CW IS = "+str(current_weapon.name))
-	
+	for wound in player.wounds:
+		if wound.subtracted==False:
+			player.max_health-=wound.loss
+			wound.subtracted=True
+	if player.health>player.max_health:
+		player.health=player.max_health
 	print("THE CURRENT FLOOR IS"+str(current_floor))
 	if current_floor<0:
 		current_floor=0
@@ -980,7 +1068,9 @@ def groundplay():
 					creature[current_planet][current_floor][i].move(0,-1)
 				if creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y and i<=len(creature[current_planet][current_floor])-1:
 					message(creature[current_planet][current_floor][i].name+" did "+str(creature[current_planet][current_floor][i].health_points-current_armor.strength)+" damage to the player")
-					player.health-=creature[current_planet][current_floor][i].health_points-current_armor.strength
+					player.health-=creature[current_planet][current_floor][i].skill_level-current_armor.strength
+					if random.randint(0,9)==0:
+						player.wounds.append(Wound("scratch",10))
 					planet[current_planet].tiles[creature[current_planet][current_floor][i].x][creature[current_planet][current_floor][i].y][current_floor].blood=True
 				
 				if dorg=="x" and creature[current_planet][current_floor][i].x==player.x and creature[current_planet][current_floor][i].y==player.y:	
